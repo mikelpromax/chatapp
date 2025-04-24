@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrashChat</title>
+    <!-- Add Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: #f5f5f5;
+        }
+        
+        /* Sidebar */
+        #sidebar {
+            width: 250px;
+            background-color: #2c3e50;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+        }
+        
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid #34495e;
+        }
+        
+        .user-profile {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #3498db;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .user-name {
+            font-weight: 500;
+        }
+        
+        .sidebar-menu {
+            padding: 20px;
+        }
+        
+        .menu-item {
+            padding: 10px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .menu-item:hover {
+            color: #3498db;
+        }
+        
+        .new-chat-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+        
+        .new-chat-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        /* Chat area */
+        #chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #ecf0f1;
+        }
+        
+        #chat-header {
+            padding: 15px 20px;
+            background-color: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        #chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            position: relative;
+        }
+        
+        .sent {
+            background-color: #3498db;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .received {
+            background-color: white;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        }
+        
+        .message-sender {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.8em;
+        }
+        
+        .message-time {
+            font-size: 0.7em;
+            opacity: 0.7;
+            text-align: right;
+            margin-top: 5px;
+        }
+        
+        /* Message input */
+        #message-input-container {
+            padding: 15px;
+            background-color: white;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+        }
+        
+        #message-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            resize: none;
+            outline: none;
+            font-size: 1em;
+            height: 50px;
+            max-height: 100px;
+        }
+        
+        #send-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-left: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        #send-button:hover {
+            background-color: #2980b9;
+        }
+        
+        /* Auth modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
+        
+        .modal-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 400px;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-title {
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            font-weight: 500;
+        }
+        
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        .auth-tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            cursor: pointer;
+            border-bottom: 2px solid #ddd;
+        }
+        
+        .auth-tab.active {
+            border-bottom: 2px solid #3498db;
+            color: #3498db;
+            font-weight: 500;
+        }
+        
+        .auth-form {
+            display: none;
+        }
+        
+        .auth-form.active {
+            display: block;
+        }
+        
+        .auth-form input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        .auth-form button {
+            width: 100%;
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .auth-form button:hover {
+            background-color: #2980b9;
+        }
+        
+        .auth-error {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        
+        .guest-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .guest-btn:hover {
+            background-color: #27ae60;
+        }
+        
+        /* Chat list */
+        .chat-list {
+            margin-top: 15px;
+        }
+        
+        .chat-item {
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .chat-item:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .chat-item.active {
+            background-color: #e0e0e0;
+        }
+        
+        .chat-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #3498db;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 0.8em;
+        }
+        
+        .chat-name {
+            flex: 1;
+        }
+        
+        /* New chat modal */
+        .user-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        
+        .user-item {
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-item:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .user-avatar-small {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #3498db;
+            margin-right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 0.8em;
+        }
+        
+        .user-name-small {
+            flex: 1;
+        }
+        
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .checkbox-container input {
+            width: auto;
+            margin-right: 10px;
+            margin-bottom: 0;
+        }
+        
+        .group-name-input {
+            margin-top: 15px;
+            display: none;
+        }
+        
+        /* Group info */
+        .group-info {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .group-members {
+            font-size: 0.8em;
+            color: #666;
+            margin-left: 10px;
+        }
+        
+        /* Close button */
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.2em;
+            cursor: pointer;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <div class="user-profile">
+                <div class="user-avatar" id="user-avatar">U</div>
+                <div class="user-name" id="user-name">Guest</div>
+            </div>
+        </div>
+        <div class="sidebar-menu">
+            <div class="menu-item" id="account-btn">Account</div>
+            <div class="menu-item">Settings</div>
+            <button class="new-chat-btn" id="new-chat-btn">New Chat</button>
+            <div class="chat-list" id="chat-list">
+                <!-- Chats will be loaded here -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Chat area -->
+    <div id="chat-container">
+        <div id="chat-header">
+            <h3 id="current-chat-name">Select a chat</h3>
+            <div id="group-info" class="group-info" style="display: none;">
+                <span id="group-members-count">0 members</span>
+            </div>
+        </div>
+        <div id="chat-messages"></div>
+        <div id="message-input-container">
+            <textarea id="message-input" placeholder="Type your message here..." disabled></textarea>
+            <button id="send-button" disabled>→</button>
+        </div>
+    </div>
+    
+    <!-- Auth Modal -->
+    <div class="modal" id="auth-modal">
+        <div class="modal-container">
+            <div class="auth-tabs">
+                <div class="auth-tab active" onclick="switchAuthTab('login')">Login</div>
+                <div class="auth-tab" onclick="switchAuthTab('register')">Register</div>
+                <div class="auth-tab" onclick="switchAuthTab('guest')">Guest</div>
+            </div>
+            
+            <div class="auth-form active" id="login-form">
+                <input type="email" id="login-email" placeholder="Email">
+                <input type="password" id="login-password" placeholder="Password">
+                <button id="login-button">Login</button>
+                <div class="auth-error" id="login-error"></div>
+            </div>
+            
+            <div class="auth-form" id="register-form">
+                <input type="text" id="register-name" placeholder="Username">
+                <input type="email" id="register-email" placeholder="Email">
+                <input type="password" id="register-password" placeholder="Password">
+                <button id="register-button">Register</button>
+                <div class="auth-error" id="register-error"></div>
+            </div>
+            
+            <div class="auth-form" id="guest-form">
+                <input type="text" id="guest-name" placeholder="Choose a display name">
+                <button class="guest-btn" id="guest-button">Continue as Guest</button>
+                <div class="auth-error" id="guest-error"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- New Chat Modal -->
+    <div class="modal" id="new-chat-modal">
+        <div class="modal-container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="modal-title">Start a new chat</div>
+                <button class="close-btn" onclick="closeModal('new-chat-modal')">×</button>
+            </div>
+            
+            <div class="checkbox-container">
+                <input type="checkbox" id="group-chat-checkbox">
+                <label for="group-chat-checkbox">Create group chat</label>
+            </div>
+            
+            <div class="group-name-input" id="group-name-container">
+                <input type="text" id="group-name" placeholder="Group name">
+            </div>
+            
+            <div class="user-list" id="user-list">
+                <!-- Users will be loaded here -->
+            </div>
+            
+            <button id="start-chat-button">Start Chat</button>
+            <div class="auth-error" id="new-chat-error"></div>
+        </div>
+    </div>
+    
+    <!-- Group Info Modal -->
+    <div class="modal" id="group-info-modal">
+        <div class="modal-container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="modal-title" id="group-info-title">Group Info</div>
+                <button class="close-btn" onclick="closeModal('group-info-modal')">×</button>
+            </div>
+            
+            <div id="group-members-list">
+                <!-- Group members will be loaded here -->
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAzTMN2JmaCgOykkTaY-h-SdvfIgxG56vo",
+            authDomain: "mychatapp-b8b91.firebaseapp.com",
+            databaseURL: "https://mychatapp-b8b91-default-rtdb.firebaseio.com",
+            projectId: "mychatapp-b8b91",
+            storageBucket: "mychatapp-b8b91.appspot.com",
+            messagingSenderId: "501101086560",
+            appId: "1:501101086560:web:b49ffa245497072f690005",
+            measurementId: "G-S991K2B7LK"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const auth = firebase.auth();
+        
+        // DOM elements
+        const messageInput = document.getElementById('message-input');
+        const chatMessages = document.getElementById('chat-messages');
+        const authModal = document.getElementById('auth-modal');
+        const accountBtn = document.getElementById('account-btn');
+        const userAvatar = document.getElementById('user-avatar');
+        const userName = document.getElementById('user-name');
+        const sendButton = document.getElementById('send-button');
+        const loginButton = document.getElementById('login-button');
+        const registerButton = document.getElementById('register-button');
+        const guestButton = document.getElementById('guest-button');
+        const newChatBtn = document.getElementById('new-chat-btn');
+        const chatList = document.getElementById('chat-list');
+        const currentChatName = document.getElementById('current-chat-name');
+        const groupInfo = document.getElementById('group-info');
+        const groupMembersCount = document.getElementById('group-members-count');
+        const newChatModal = document.getElementById('new-chat-modal');
+        const userList = document.getElementById('user-list');
+        const groupChatCheckbox = document.getElementById('group-chat-checkbox');
+        const groupNameContainer = document.getElementById('group-name-container');
+        const groupNameInput = document.getElementById('group-name');
+        const startChatButton = document.getElementById('start-chat-button');
+        const newChatError = document.getElementById('new-chat-error');
+        const groupInfoModal = document.getElementById('group-info-modal');
+        const groupInfoTitle = document.getElementById('group-info-title');
+        const groupMembersList = document.getElementById('group-members-list');
+        
+        // App state
+        let currentUser = null;
+        let currentChat = null;
+        let users = {};
+        let chats = {};
+        let selectedUsers = {};
+        let guestUsers = JSON.parse(localStorage.getItem('guestUsers')) || {};
+        
+        // Check auth state
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            if (user) {
+                // User is signed in (regular or guest)
+                updateUserDisplay(user);
+                loadUserChats();
+                loadUsers();
+                authModal.style.display = 'none';
+            } else {
+                // No user is signed in
+                updateGuestDisplay();
+                authModal.style.display = 'flex';
+            }
+        });
+        
+        // Update user display
+        function updateUserDisplay(user) {
+            if (user.isAnonymous) {
+                // Guest user
+                const guestData = guestUsers[user.uid] || { displayName: 'Guest' };
+                userAvatar.textContent = guestData.displayName ? guestData.displayName.charAt(0).toUpperCase() : 'G';
+                userName.textContent = guestData.displayName || 'Guest';
+            } else {
+                // Regular user
+                userAvatar.textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U';
+                userName.textContent = user.displayName || 'User';
+            }
+        }
+        
+        // Update guest display
+        function updateGuestDisplay() {
+            userAvatar.textContent = 'G';
+            userName.textContent = 'Guest';
+            chatMessages.innerHTML = '';
+            chatList.innerHTML = '';
+            currentChatName.textContent = 'Select a chat';
+            groupInfo.style.display = 'none';
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            currentChat = null;
+        }
+        
+        // Load all users
+        function loadUsers() {
+            database.ref('users').on('value', snapshot => {
+                users = {};
+                snapshot.forEach(childSnapshot => {
+                    if (childSnapshot.key !== currentUser.uid) {
+                        users[childSnapshot.key] = childSnapshot.val();
+                    }
+                });
+                updateUserList();
+            });
+        }
+        
+        // Update user list in new chat modal
+        function updateUserList() {
+            userList.innerHTML = '';
+            for (const userId in users) {
+                const user = users[userId];
+                const userItem = document.createElement('div');
+                userItem.classList.add('user-item');
+                userItem.dataset.userId = userId;
+                
+                userItem.innerHTML = `
+                    <div class="user-avatar-small">${user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}</div>
+                    <div class="user-name-small">${user.displayName || 'User'}</div>
+                    <input type="checkbox" class="user-checkbox" data-user-id="${userId}">
+                `;
+                
+                userList.appendChild(userItem);
+                
+                // Add event listener to checkbox
+                const checkbox = userItem.querySelector('.user-checkbox');
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        selectedUsers[userId] = users[userId];
+                    } else {
+                        delete selectedUsers[userId];
+                    }
+                });
+            }
+        }
+        
+        // Load user's chats
+        function loadUserChats() {
+            if (!currentUser) return;
+            
+            database.ref('userChats/' + currentUser.uid).on('value', snapshot => {
+                chatList.innerHTML = '';
+                chats = {};
+                
+                snapshot.forEach(childSnapshot => {
+                    const chatId = childSnapshot.key;
+                    const chatData = childSnapshot.val();
+                    chats[chatId] = chatData;
+                    
+                    const chatItem = document.createElement('div');
+                    chatItem.classList.add('chat-item');
+                    chatItem.dataset.chatId = chatId;
+                    
+                    // Determine chat name and avatar
+                    let chatName = 'Chat';
+                    let avatarText = 'C';
+                    
+                    if (chatData.isGroup) {
+                        chatName = chatData.groupName || 'Group Chat';
+                        avatarText = chatName.charAt(0).toUpperCase();
+                    } else {
+                        // For private chat, find the other participant
+                        const participants = Object.keys(chatData.participants || {});
+                        const otherUserId = participants.find(id => id !== currentUser.uid);
+                        if (otherUserId && users[otherUserId]) {
+                            chatName = users[otherUserId].displayName || 'User';
+                            avatarText = chatName.charAt(0).toUpperCase();
+                        }
+                    }
+                    
+                    chatItem.innerHTML = `
+                        <div class="chat-avatar">${avatarText}</div>
+                        <div class="chat-name">${chatName}</div>
+                    `;
+                    
+                    chatItem.addEventListener('click', () => {
+                        selectChat(chatId);
+                    });
+                    
+                    chatList.appendChild(chatItem);
+                });
+            });
+        }
+        
+        // Select a chat to view
+        function selectChat(chatId) {
+            if (!chats[chatId]) return;
+            
+            currentChat = chatId;
+            const chatData = chats[chatId];
+            
+            // Update UI
+            document.querySelectorAll('.chat-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.chatId === chatId) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // Set chat name
+            if (chatData.isGroup) {
+                currentChatName.textContent = chatData.groupName || 'Group Chat';
+                groupMembersCount.textContent = `${Object.keys(chatData.participants || {}).length} members`;
+                groupInfo.style.display = 'flex';
+                
+                // Set group info click handler
+                groupInfo.onclick = () => showGroupInfo(chatId);
+            } else {
+                // For private chat, find the other participant
+                const participants = Object.keys(chatData.participants || {});
+                const otherUserId = participants.find(id => id !== currentUser.uid);
+                if (otherUserId && users[otherUserId]) {
+                    currentChatName.textContent = users[otherUserId].displayName || 'User';
+                } else {
+                    currentChatName.textContent = 'Private Chat';
+                }
+                groupInfo.style.display = 'none';
+            }
+            
+            // Enable message input
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+            messageInput.focus();
+            
+            // Load messages for this chat
+            loadMessages(chatId);
+        }
+        
+        // Show group info modal
+        function showGroupInfo(chatId) {
+            const chatData = chats[chatId];
+            if (!chatData || !chatData.isGroup) return;
+            
+            groupInfoTitle.textContent = chatData.groupName || 'Group Chat';
+            groupMembersList.innerHTML = '';
+            
+            for (const userId in chatData.participants) {
+                const user = chatData.participants[userId];
+                const memberItem = document.createElement('div');
+                memberItem.classList.add('user-item');
+                
+                memberItem.innerHTML = `
+                    <div class="user-avatar-small">${user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}</div>
+                    <div class="user-name-small">${user.displayName || 'User'}</div>
+                `;
+                
+                groupMembersList.appendChild(memberItem);
+            }
+            
+            groupInfoModal.style.display = 'flex';
+        }
+        
+        // Load messages for a chat
+        function loadMessages(chatId) {
+            chatMessages.innerHTML = '';
+            
+            database.ref('chats/' + chatId + '/messages').on('value', snapshot => {
+                chatMessages.innerHTML = '';
+                const messages = [];
+                
+                snapshot.forEach(childSnapshot => {
+                    messages.push({
+                        id: childSnapshot.key,
+                        ...childSnapshot.val()
+                    });
+                });
+                
+                // Sort messages by timestamp
+                messages.sort((a, b) => a.timestamp - b.timestamp);
+                
+                // Display messages
+                messages.forEach(msg => {
+                    const messageElement = document.createElement('div');
+                    messageElement.classList.add('message');
+                    
+                    const isCurrentUser = currentUser && msg.senderId === currentUser.uid;
+                    messageElement.classList.add(isCurrentUser ? 'sent' : 'received');
+                    
+                    messageElement.innerHTML = `
+                        ${!isCurrentUser ? `<div class="message-sender">${msg.senderName}</div>` : ''}
+                        <div>${msg.text}</div>
+                        <div class="message-time">${formatTime(msg.timestamp)}</div>
+                    `;
+                    
+                    chatMessages.appendChild(messageElement);
+                });
+                
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
+        }
+        
+        // Send message function
+        function sendMessage() {
+            const messageText = messageInput.value.trim();
+            if (messageText === '' || !currentChat || !currentUser) return;
+            
+            let senderName = 'Guest';
+            
+            if (currentUser.isAnonymous) {
+                // Guest user
+                const guestData = guestUsers[currentUser.uid] || { displayName: 'Guest' };
+                senderName = guestData.displayName || 'Guest';
+            } else {
+                // Regular user
+                senderName = currentUser.displayName || 'User';
+            }
+            
+            const message = {
+                text: messageText,
+                senderName: senderName,
+                senderId: currentUser.uid,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            // Push message to Firebase
+            database.ref('chats/' + currentChat + '/messages').push(message)
+                .then(() => {
+                    messageInput.value = '';
+                    
+                    // Update last message timestamp in chat metadata
+                    database.ref('chats/' + currentChat).update({
+                        lastMessageTimestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+                })
+                .catch(error => {
+                    console.error("Error sending message:", error);
+                });
+        }
+        
+        // Create a new chat
+        function createNewChat() {
+            const isGroupChat = groupChatCheckbox.checked;
+            const groupName = groupNameInput.value.trim();
+            
+            if (isGroupChat && Object.keys(selectedUsers).length < 2) {
+                newChatError.textContent = 'Group chat requires at least 2 other participants';
+                return;
+            }
+            
+            if (isGroupChat && !groupName) {
+                newChatError.textContent = 'Please enter a group name';
+                return;
+            }
+            
+            if (!isGroupChat && Object.keys(selectedUsers).length !== 1) {
+                newChatError.textContent = 'Select exactly one user for private chat';
+                return;
+            }
+            
+            newChatError.textContent = '';
+            
+            // Create chat data
+            const participants = {};
+            participants[currentUser.uid] = {
+                displayName: currentUser.displayName || 'User',
+                joinedAt: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            // Add selected users
+            for (const userId in selectedUsers) {
+                participants[userId] = {
+                    displayName: selectedUsers[userId].displayName,
+                    joinedAt: firebase.database.ServerValue.TIMESTAMP
+                };
+            }
+            
+            const chatData = {
+                isGroup: isGroupChat,
+                participants: participants,
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                lastMessageTimestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            if (isGroupChat) {
+                chatData.groupName = groupName;
+                chatData.createdBy = currentUser.uid;
+            }
+            
+            // Create chat in Firebase
+            const newChatRef = database.ref('chats').push();
+            newChatRef.set(chatData)
+                .then(() => {
+                    const chatId = newChatRef.key;
+                    
+                    // Add chat reference to each participant's userChats
+                    const updates = {};
+                    for (const userId in participants) {
+                        updates['userChats/' + userId + '/' + chatId] = {
+                            isGroup: isGroupChat,
+                            groupName: isGroupChat ? groupName : null,
+                            lastMessageTimestamp: firebase.database.ServerValue.TIMESTAMP
+                        };
+                    }
+                    
+                    return database.ref().update(updates);
+                })
+                .then(() => {
+                    // Clear selection and close modal
+                    selectedUsers = {};
+                    groupChatCheckbox.checked = false;
+                    groupNameContainer.style.display = 'none';
+                    groupNameInput.value = '';
+                    closeModal('new-chat-modal');
+                })
+                .catch(error => {
+                    newChatError.textContent = error.message;
+                    console.error("Error creating chat:", error);
+                });
+        }
+        
+        // Format timestamp
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        // Auth functions
+        function switchAuthTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            
+            if (tab === 'login') {
+                document.querySelector('.auth-tab:nth-child(1)').classList.add('active');
+                document.getElementById('login-form').classList.add('active');
+            } else if (tab === 'register') {
+                document.querySelector('.auth-tab:nth-child(2)').classList.add('active');
+                document.getElementById('register-form').classList.add('active');
+            } else {
+                document.querySelector('.auth-tab:nth-child(3)').classList.add('active');
+                document.getElementById('guest-form').classList.add('active');
+            }
+        }
+        
+        function login() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const errorElement = document.getElementById('login-error');
+            
+            errorElement.textContent = '';
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Save user info to database if not already there
+                    const user = userCredential.user;
+                    return database.ref('users/' + user.uid).set({
+                        displayName: user.displayName,
+                        email: user.email,
+                        lastSeen: firebase.database.ServerValue.TIMESTAMP
+                    }, { merge: true });
+                })
+                .then(() => {
+                    authModal.style.display = 'none';
+                })
+                .catch(error => {
+                    errorElement.textContent = error.message;
+                });
+        }
+        
+        function register() {
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const errorElement = document.getElementById('register-error');
+            
+            errorElement.textContent = '';
+            
+            if (!name || !email || !password) {
+                errorElement.textContent = 'Please fill all fields';
+                return;
+            }
+            
+            if (password.length < 6) {
+                errorElement.textContent = 'Password should be at least 6 characters';
+                return;
+            }
+            
+            // First create the user with email/password
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Then update the profile with the display name
+                    return userCredential.user.updateProfile({
+                        displayName: name
+                    });
+                })
+                .then(() => {
+                    // Save user info to database
+                    const user = auth.currentUser;
+                    return database.ref('users/' + user.uid).set({
+                        displayName: name,
+                        email: email,
+                        lastSeen: firebase.database.ServerValue.TIMESTAMP
+                    });
+                })
+                .then(() => {
+                    authModal.style.display = 'none';
+                })
+                .catch(error => {
+                    errorElement.textContent = error.message;
+                    console.error("Registration error:", error);
+                });
+        }
+        
+        function continueAsGuest() {
+            const guestName = document.getElementById('guest-name').value.trim() || 'Guest';
+            const errorElement = document.getElementById('guest-error');
+            
+            errorElement.textContent = '';
+            
+            auth.signInAnonymously()
+                .then((userCredential) => {
+                    // Store guest information locally
+                    const userId = userCredential.user.uid;
+                    guestUsers[userId] = { displayName: guestName };
+                    localStorage.setItem('guestUsers', JSON.stringify(guestUsers));
+                    
+                    // Also store in database (but don't treat as a real user)
+                    return database.ref('users/' + userId).set({
+                        displayName: guestName,
+                        isGuest: true,
+                        lastSeen: firebase.database.ServerValue.TIMESTAMP
+                    }, { merge: true });
+                })
+                .then(() => {
+                    authModal.style.display = 'none';
+                })
+                .catch(error => {
+                    errorElement.textContent = error.message;
+                    console.error("Guest sign-in error:", error);
+                });
+        }
+        
+        // Modal functions
+        function openNewChatModal() {
+            if (!currentUser) {
+                authModal.style.display = 'flex';
+                return;
+            }
+            
+            selectedUsers = {};
+            newChatError.textContent = '';
+            newChatModal.style.display = 'flex';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        // Event listeners
+        accountBtn.addEventListener('click', () => {
+            if (currentUser) {
+                if (confirm('Do you want to sign out?')) {
+                    auth.signOut();
+                }
+            } else {
+                authModal.style.display = 'flex';
+            }
+        });
+        
+        sendButton.addEventListener('click', sendMessage);
+        loginButton.addEventListener('click', login);
+        registerButton.addEventListener('click', register);
+        guestButton.addEventListener('click', continueAsGuest);
+        startChatButton.addEventListener('click', createNewChat);
+        
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        newChatBtn.addEventListener('click', openNewChatModal);
+        
+        groupChatCheckbox.addEventListener('change', function() {
+            groupNameContainer.style.display = this.checked ? 'block' : 'none';
+        });
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if Firebase is initialized
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            
+            // Show auth modal if not logged in
+            if (!auth.currentUser) {
+                authModal.style.display = 'flex';
+            }
+        });
+    </script>
+</body>
+</html>
